@@ -8,6 +8,70 @@ Search Claude Code conversation history and resume past sessions.
 - **Time Filtering** - `--since yesterday`, `--since 7days`
 - **Session Resume** - Returns Session IDs for `claude --resume`
 
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     Installation Methods                        │
+├─────────────────┬─────────────────┬─────────────────────────────┤
+│  Claude Plugin  │      npm        │        Source               │
+│  (recommended)  │                 │                             │
+├─────────────────┼─────────────────┼─────────────────────────────┤
+│ /plugin install │ npm install -g  │ git clone + uv sync         │
+│ session-search  │ claude-session- │                             │
+│                 │ analyzer        │                             │
+└────────┬────────┴────────┬────────┴──────────────┬──────────────┘
+         │                 │                       │
+         ▼                 ▼                       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        Core Components                          │
+├─────────────────┬─────────────────┬─────────────────────────────┤
+│   SKILL.md      │   CLI (csa)     │    Python Analyzer          │
+│   Guide for     │   csa search    │    analyzer/                │
+│   Claude        │   csa analyze   │    ├── cli.py               │
+│                 │                 │    ├── core.py              │
+│                 │                 │    ├── smart_search.py      │
+│                 │                 │    ├── intent_analyzer.py   │
+│                 │                 │    └── reranker.py          │
+└────────┬────────┴────────┬────────┴──────────────┬──────────────┘
+         │                 │                       │
+         ▼                 ▼                       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                         Data Source                             │
+│                  ~/.claude/projects/*/*.jsonl                   │
+│                    (Claude Code Session Files)                  │
+└─────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                          Output                                 │
+│   Session ID + Resume Command: claude --resume <session-id>    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Project Structure
+
+```
+claude-session-analyzer/
+├── .claude-plugin/
+│   ├── plugin.json         # Plugin metadata
+│   └── marketplace.json    # Dev marketplace
+├── skills/
+│   └── session-search/
+│       ├── SKILL.md        # Skill guide for Claude
+│       └── session-search.py
+├── analyzer/
+│   ├── cli.py              # CLI entry point
+│   ├── core.py             # NLP analysis
+│   ├── smart_search.py     # Search logic + time filtering
+│   ├── intent_analyzer.py  # Intent detection (LLM)
+│   └── reranker.py         # Result ranking
+├── bin/
+│   └── csa.js              # npm CLI wrapper
+├── package.json            # npm package config
+└── pyproject.toml          # Python package config
+```
+
 ## Requirements
 
 - Python 3.10+
