@@ -2,6 +2,12 @@
 
 Search Claude Code conversation history and resume past sessions.
 
+## Features
+
+- **Keyword Search** - Find sessions by topic
+- **Time Filtering** - `--since yesterday`, `--since 7days`
+- **Session Resume** - Returns Session IDs for `claude --resume`
+
 ## Requirements
 
 - Python 3.10+
@@ -9,7 +15,20 @@ Search Claude Code conversation history and resume past sessions.
 
 ## Install
 
-### Option 1: npm (recommended)
+### Option 1: Claude Code Plugin (recommended)
+
+```bash
+# Add marketplace
+claude /plugin marketplace add OWENLEEzy/claude-session-analyzer
+
+# Install plugin
+claude /plugin install session-search
+
+# Restart Claude Code, then use:
+/session-search 昨天做了什么
+```
+
+### Option 2: npm
 
 ```bash
 npm install -g claude-session-analyzer
@@ -17,7 +36,16 @@ npm install -g claude-session-analyzer
 
 This automatically installs the `/session-search` skill.
 
-### Option 2: from source
+### Option 3: PyPI
+
+```bash
+pip install claude-session-analyzer
+
+# Or with uv
+uv pip install claude-session-analyzer
+```
+
+### Option 4: from source
 
 ```bash
 git clone https://github.com/OWENLEEzy/claude-session-analyzer.git
@@ -35,6 +63,8 @@ cp skills/session-search/* ~/.claude/skills/session-search/
 
 ```
 /session-search authentication
+/session-search 昨天做了什么
+/session-search 最近一周的工作
 ```
 
 Returns Session IDs to resume with:
@@ -46,19 +76,30 @@ claude --resume <session-id>
 ### CLI
 
 ```bash
-# Search sessions
-csa search "authentication"
-csa search "fix bug" --limit 10
+# Keyword search
+csa search "authentication" --limit 5
+
+# Time filtering
+csa search "" --since yesterday
+csa search "" --since 7days --limit 10
+csa search "" --since 2026-02-01 --until 2026-02-15
+
+# List all sessions
+csa search "" --all
 
 # Analyze a session file
 csa analyze path/to/session.jsonl
+
+# JSON output
+csa search "bug" --format json
 ```
 
 ## How it works
 
 1. Scans `~/.claude/projects/*.jsonl`
 2. Matches keywords against session content
-3. Ranks results by relevance
+3. Supports time filtering with relative dates
+4. Ranks results by relevance
 
 ## Development
 

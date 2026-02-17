@@ -1,6 +1,6 @@
 [project]
 name = "claude-session-analyzer"
-version = "1.0.0"
+version = "1.1.0"
 description = "NLP-based analyzer for Claude Code session transcripts"
 readme = "README.md"
 requires-python = ">=3.10"
