@@ -1,0 +1,33 @@
+{
+  "name": "claude-session-analyzer",
+  "version": "1.0.0",
+  "description": "Search Claude Code conversation history and resume past sessions",
+  "bin": {
+    "csa": "./bin/csa.js"
+  },
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "session",
+    "analyzer",
+    "nlp",
+    "skill",
+    "search"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16"
+  },
+  "files": [
+    "bin/",
+    "scripts/postinstall.js",
+    "skills/",
+    "analyzer/",
+    "pyproject.toml",
+    "README.md"
+  ]
+}
