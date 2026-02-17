@@ -1,19 +1,14 @@
-# Development files
-.venv/
-.git/
-.github/
-.gitignore
+# Python cache (must use ** to match nested directories)
+**/__pycache__/
+**/*.py[cod]
+**/*.pyo
 
-# Python cache
-__pycache__/
-*.py[cod]
-*.pyo
-.mypy_cache/
-.pytest_cache/
-.ruff_cache/
-.hypothesis/
+# Type checking
+**/.mypy_cache/
 
 # Testing
+**/.pytest_cache/
+**/.hypothesis/
 tests/
 .coverage
 htmlcov/
@@ -24,7 +19,13 @@ build/
 dist/
 mutants/
 
-# Documentation
+# Development files
+.venv/
+.git/
+.github/
+.gitignore
+
+# Documentation (except README and skills)
 CLAUDE.md
 *.md
 !README.md
@@ -35,3 +36,4 @@ CLAUDE.md
 justfile
 uv.lock
 sample_data/
+scripts/quality-check.sh

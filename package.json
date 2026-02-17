@@ -12,13 +12,18 @@
     "claude",
     "claude-code",
     "session",
-    "analyzer",
-    "nlp",
-    "skill",
-    "search"
+    "search",
+    "skill"
   ],
-  "author": "",
+  "author": "OWENLEEzy",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OWENLEEzy/claude-session-analyzer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/OWENLEEzy/claude-session-analyzer/issues"
+  },
   "engines": {
     "node": ">=16"
   },
@@ -26,7 +31,8 @@
     "bin/",
     "scripts/postinstall.js",
     "skills/",
-    "analyzer/",
+    "analyzer/*.py",
+    "analyzer/__init__.py",
     "pyproject.toml",
     "README.md"
   ]

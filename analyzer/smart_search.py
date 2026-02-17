@@ -178,6 +178,8 @@ class LocalSessionSearcher:
         query: str | list[str],
         mode: str = "text",  # noqa: ARG002
         limit: int = 10,
+        since: datetime | None = None,
+        until: datetime | None = None,
     ) -> list[SearchResult]:
         """Search for sessions matching the query.
 
@@ -185,6 +187,8 @@ class LocalSessionSearcher:
             query: Search query string or list of concept strings
             mode: Search mode (kept for API compatibility)
             limit: Maximum number of results
+            since: Filter sessions modified after this datetime
+            until: Filter sessions modified before this datetime
 
         Returns:
             List of SearchResult objects
@@ -195,6 +199,9 @@ class LocalSessionSearcher:
 
         query_lower = query.lower()
         query_words = set(re.findall(r"\w+", query_lower))
+
+        # If no query words, return all sessions (filtered by time if specified)
+        list_all_mode = not query_words
 
         results: list[tuple[float, SearchResult]] = []
         sessions = self.find_all_sessions()
@@ -209,14 +216,19 @@ class LocalSessionSearcher:
                 content_words = set(re.findall(r"\w+", content_lower))
                 common_words = query_words & content_words
 
-                if not common_words:
+                # Skip if no match (unless listing all sessions)
+                if not list_all_mode and not common_words:
                     continue
 
                 # Jaccard-like similarity with boost for multiple matches
-                similarity = len(common_words) / max(len(query_words), 1)
-                # Boost score if multiple query words match
-                if len(common_words) > 1:
-                    similarity *= 1.5
+                if list_all_mode:
+                    # In list all mode, sort by timestamp (most recent first)
+                    similarity = 1.0
+                else:
+                    similarity = len(common_words) / max(len(query_words), 1)
+                    # Boost score if multiple query words match
+                    if len(common_words) > 1:
+                        similarity *= 1.5
 
                 # Get session metadata using the analyzer
                 session_id = self.extract_session_id(session_path)
@@ -241,6 +253,12 @@ class LocalSessionSearcher:
                 # Get file modification time as timestamp
                 timestamp = datetime.fromtimestamp(session_path.stat().st_mtime)
 
+                # Apply time filtering
+                if since and timestamp < since:
+                    continue
+                if until and timestamp > until:
+                    continue
+
                 result = SearchResult(
                     session_id=session_id,
                     project_path=project_path,
@@ -258,8 +276,11 @@ class LocalSessionSearcher:
                 logger.debug(f"Error processing session {session_path}: {e}")
                 continue
 
-        # Sort by similarity (descending)
-        results.sort(key=lambda x: x[0], reverse=True)
+        # Sort by similarity (descending) or by timestamp (most recent first) when listing all
+        if list_all_mode:
+            results.sort(key=lambda x: x[1].timestamp or datetime.min, reverse=True)
+        else:
+            results.sort(key=lambda x: x[0], reverse=True)
 
         # Return top results
         return [r for _, r in results[:limit]]
@@ -452,18 +473,22 @@ class SmartSearch:
 def quick_search(
     query: str,
     limit: int = 5,
-    current_project: str | None = None,
+    current_project: str | None = None,  # noqa: ARG001
+    since: datetime | None = None,
+    until: datetime | None = None,
 ) -> list[SearchResult]:
     """Quick smart search function.
 
     Args:
         query: Natural language search query
         limit: Number of results to return
-        current_project: Current project path for better matching
+        current_project: Current project path (kept for API compatibility)
+        since: Filter sessions modified after this datetime
+        until: Filter sessions modified before this datetime
 
     Returns:
         List of SearchResult objects
     """
-    searcher = SmartSearch(current_project=current_project)
-    result = searcher.search(query, limit=limit)
-    return result.results
+    # Use LocalSessionSearcher directly for time filtering support
+    searcher = LocalSessionSearcher()
+    return searcher.search(query, limit=limit, since=since, until=until)

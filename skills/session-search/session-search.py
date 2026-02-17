@@ -3,13 +3,13 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
 
 
 @dataclass
@@ -24,6 +24,39 @@ class SearchResult:
     goals: list[str] = field(default_factory=list)
     actions: list[str] = field(default_factory=list)
     outcome: str = ""
+
+
+def parse_date(date_str: str, end_of_day: bool = False) -> datetime | None:
+    """Parse date string to datetime.
+
+    Supports:
+    - YYYY-MM-DD format
+    - Relative dates: 'yesterday', 'today', '7days', '30days', etc.
+
+    Args:
+        date_str: Date string to parse
+        end_of_day: If True, return end of day (23:59:59) instead of start (00:00:00)
+    """
+    date_str = date_str.lower().strip()
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    if date_str == "today":
+        base = today
+    elif date_str == "yesterday":
+        base = today - timedelta(days=1)
+    elif date_str == "week" or date_str == "7days":
+        base = today - timedelta(days=7)
+    elif date_str == "month" or date_str == "30days":
+        base = today - timedelta(days=30)
+    else:
+        try:
+            base = datetime.strptime(date_str, "%Y-%m-%d")
+        except ValueError:
+            return None
+
+    if end_of_day:
+        return base.replace(hour=23, minute=59, second=59)
+    return base
 
 
 def find_all_sessions(claude_dir: Path) -> list[Path]:
@@ -73,10 +106,7 @@ def read_session_content(session_path: Path) -> str:
                                     content_parts.append(msg_content)
                                 elif isinstance(msg_content, list):
                                     for block in msg_content:
-                                        if (
-                                            isinstance(block, dict)
-                                            and block.get("type") == "text"
-                                        ):
+                                        if isinstance(block, dict) and block.get("type") == "text":
                                             content_parts.append(block.get("text", ""))
                     except json.JSONDecodeError:
                         continue
@@ -86,12 +116,20 @@ def read_session_content(session_path: Path) -> str:
     return " ".join(content_parts)
 
 
-def search_sessions(query: str, limit: int = 5) -> list[SearchResult]:
+def search_sessions(
+    query: str,
+    limit: int = 5,
+    since: datetime | None = None,
+    until: datetime | None = None,
+) -> list[SearchResult]:
     """Search for sessions matching the query."""
     claude_dir = Path.home() / ".claude"
 
     query_lower = query.lower()
     query_words = set(re.findall(r"\w+", query_lower))
+
+    # If no query words, list all sessions (filtered by time if specified)
+    list_all_mode = not query_words
 
     results: list[tuple[float, SearchResult]] = []
     sessions = find_all_sessions(claude_dir)
@@ -104,19 +142,30 @@ def search_sessions(query: str, limit: int = 5) -> list[SearchResult]:
             content_words = set(re.findall(r"\w+", content_lower))
             common_words = query_words & content_words
 
-            if not common_words:
+            # Skip if no match (unless listing all sessions)
+            if not list_all_mode and not common_words:
                 continue
 
-            similarity = len(common_words) / max(len(query_words), 1)
-            if len(common_words) > 1:
-                similarity *= 1.5
+            timestamp = datetime.fromtimestamp(session_path.stat().st_mtime)
+
+            # Apply time filtering
+            if since and timestamp < since:
+                continue
+            if until and timestamp > until:
+                continue
+
+            # Calculate similarity
+            if list_all_mode:
+                similarity = 1.0
+            else:
+                similarity = len(common_words) / max(len(query_words), 1)
+                if len(common_words) > 1:
+                    similarity *= 1.5
 
             session_id = extract_session_id(session_path)
             project_path = extract_project_name(session_path)
 
             summary = content[:200] + "..." if len(content) > 200 else content
-
-            timestamp = datetime.fromtimestamp(session_path.stat().st_mtime)
 
             result = SearchResult(
                 session_id=session_id,
@@ -131,16 +180,27 @@ def search_sessions(query: str, limit: int = 5) -> list[SearchResult]:
         except Exception:
             continue
 
-    results.sort(key=lambda x: x[0], reverse=True)
+    # Sort by similarity or timestamp
+    if list_all_mode:
+        results.sort(key=lambda x: x[1].timestamp or datetime.min, reverse=True)
+    else:
+        results.sort(key=lambda x: x[0], reverse=True)
+
     return [r for _, r in results[:limit]]
 
 
-def format_results(results: list[SearchResult], query: str) -> str:
+def format_results(results: list[SearchResult], query: str, time_desc: str = "") -> str:
     """Format search results for display."""
     if not results:
-        return f"No sessions found matching: {query}"
+        if query:
+            return f"No sessions found matching: {query}"
+        else:
+            return f"No sessions found{time_desc}"
 
-    lines = [f'Found {len(results)} sessions matching "{query}":\n']
+    if query:
+        lines = [f'Found {len(results)} sessions matching "{query}"{time_desc}:\n']
+    else:
+        lines = [f"Found {len(results)} sessions{time_desc}:\n"]
 
     for i, r in enumerate(results, 1):
         time_str = ""
@@ -148,9 +208,7 @@ def format_results(results: list[SearchResult], query: str) -> str:
             time_str = r.timestamp.strftime("%Y-%m-%d %H:%M")
 
         session_id = r.session_id
-        session_id_short = (
-            session_id[:16] + "..." if len(session_id) > 16 else session_id
-        )
+        session_id_short = session_id[:16] + "..." if len(session_id) > 16 else session_id
 
         lines.append(f"{i}. [{session_id_short}] {time_str}  {r.project_path}")
 
@@ -173,17 +231,58 @@ def format_results(results: list[SearchResult], query: str) -> str:
 
 def main():
     """Main entry point."""
-    if len(sys.argv) < 2:
-        print("Usage: session-search.py <query>")
-        print("\nSearch your Claude Code conversation history.")
-        print("Example: session-search.py authentication")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description="Search Claude Code conversation history",
+    )
+    parser.add_argument(
+        "query",
+        nargs="*",
+        help="Search query (can be empty to list all sessions)",
+    )
+    parser.add_argument(
+        "-l",
+        "--limit",
+        type=int,
+        default=5,
+        help="Number of results (default: 5)",
+    )
+    parser.add_argument(
+        "--since",
+        type=str,
+        help="Start date (YYYY-MM-DD or 'yesterday', '7days', etc.)",
+    )
+    parser.add_argument(
+        "--until",
+        type=str,
+        help="End date (YYYY-MM-DD)",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="List all sessions",
+    )
 
-    query = " ".join(sys.argv[1:])
+    args = parser.parse_args()
+
+    query = " ".join(args.query) if args.query else ""
+    limit = 9999 if args.all else args.limit
+
+    since = parse_date(args.since) if args.since else None
+    until = parse_date(args.until, end_of_day=True) if args.until else None
+
+    # Build time description
+    time_desc = ""
+    if since or until:
+        parts = []
+        if since:
+            parts.append(f"since {since.strftime('%Y-%m-%d')}")
+        if until:
+            parts.append(f"until {until.strftime('%Y-%m-%d')}")
+        time_desc = f" ({', '.join(parts)})"
 
     try:
-        results = search_sessions(query, limit=5)
-        output = format_results(results, query)
+        results = search_sessions(query, limit=limit, since=since, until=until)
+        output = format_results(results, query, time_desc)
         print(output)
     except Exception as e:
         print(f"Error searching sessions: {e}")

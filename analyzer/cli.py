@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from rich.console import Console
@@ -76,21 +77,91 @@ def format_result(result: AnalysisResult, format_type: str = "text") -> str:
     return "\n".join(lines)
 
 
+def parse_date(date_str: str, end_of_day: bool = False) -> datetime | None:
+    """Parse date string to datetime.
+
+    Supports:
+    - YYYY-MM-DD format
+    - Relative dates: 'yesterday', 'today', '7days', '30days', etc.
+
+    Args:
+        date_str: Date string to parse
+        end_of_day: If True, return end of day (23:59:59) instead of start (00:00:00)
+
+    Returns:
+        datetime object or None if parsing fails
+    """
+    from datetime import timedelta
+
+    date_str = date_str.lower().strip()
+
+    # Handle relative dates
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    if date_str == "today":
+        base = today
+    elif date_str == "yesterday":
+        base = today - timedelta(days=1)
+    elif date_str == "week" or date_str == "7days":
+        base = today - timedelta(days=7)
+    elif date_str == "month" or date_str == "30days":
+        base = today - timedelta(days=30)
+    else:
+        # Handle YYYY-MM-DD format
+        try:
+            base = datetime.strptime(date_str, "%Y-%m-%d")
+        except ValueError:
+            return None
+
+    if end_of_day:
+        return base.replace(hour=23, minute=59, second=59)
+    return base
+
+
 def cmd_search(args: argparse.Namespace) -> int:
     """Handle search command."""
     console = Console()
 
-    query = " ".join(args.query)
-    if not query:
-        console.print("[red]Error: 请输入搜索内容[/red]")
-        return 1
+    query = " ".join(args.query) if args.query else ""
+
+    # Handle --all flag
+    limit = 9999 if args.all else args.limit
+
+    # Parse time filters
+    since = None
+    until = None
+
+    if args.since:
+        since = parse_date(args.since)
+        if since is None:
+            console.print(f"[red]Error: 无法解析日期: {args.since}[/red]")
+            return 1
+
+    if args.until:
+        until = parse_date(args.until, end_of_day=True)
+        if until is None:
+            console.print(f"[red]Error: 无法解析日期: {args.until}[/red]")
+            return 1
 
     try:
-        results = quick_search(query, limit=args.limit)
+        results = quick_search(query, limit=limit, since=since, until=until)
 
         if not results:
-            console.print(f"[yellow]No sessions found matching: {query}[/yellow]")
+            if query:
+                console.print(f"[yellow]No sessions found matching: {query}[/yellow]")
+            else:
+                console.print("[yellow]No sessions found[/yellow]")
             return 0
+
+        # Build time filter description
+        time_desc = ""
+        if since or until:
+            parts = []
+            if since:
+                parts.append(f"since {since.strftime('%Y-%m-%d')}")
+            if until:
+                parts.append(f"until {until.strftime('%Y-%m-%d')}")
+            time_desc = f" ({', '.join(parts)})"
 
         if args.format == "json":
             output = []
@@ -109,7 +180,8 @@ def cmd_search(args: argparse.Namespace) -> int:
                 )
             print(json.dumps(output, ensure_ascii=False, indent=2))
         elif args.format == "table":
-            table = Table(title=f"Search Results: {query}")
+            title = f"Search Results: {query}" if query else "Sessions"
+            table = Table(title=title + time_desc)
             table.add_column("#", style="dim", width=3)
             table.add_column("Session ID", style="cyan", width=20)
             table.add_column("Project", style="green", width=25)
@@ -128,9 +200,14 @@ def cmd_search(args: argparse.Namespace) -> int:
             console.print(table)
             console.print("\n[dim]Resume a session with: claude --resume <session-id>[/dim]")
         else:
-            console.print(
-                f'\n[bold green]Found {len(results)} sessions matching "{query}":[/bold green]\n'
-            )
+            if query:
+                console.print(
+                    f'\n[bold green]Found {len(results)} sessions matching "{query}"{time_desc}:[/bold green]\n'
+                )
+            else:
+                console.print(
+                    f"\n[bold green]Found {len(results)} sessions{time_desc}:[/bold green]\n"
+                )
             for i, r in enumerate(results, 1):
                 # Format timestamp
                 time_str = ""
@@ -267,8 +344,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     search_parser.add_argument(
         "query",
-        nargs="+",
-        help="搜索关键词或自然语言描述",
+        nargs="*",
+        help="搜索关键词或自然语言描述 (可为空以列出所有会话)",
     )
     search_parser.add_argument(
         "-l",
@@ -283,6 +360,21 @@ def main(argv: list[str] | None = None) -> int:
         choices=["text", "json", "table"],
         default="text",
         help="输出格式",
+    )
+    search_parser.add_argument(
+        "--since",
+        type=str,
+        help="起始时间 (YYYY-MM-DD 或相对日期如 'yesterday', '7days')",
+    )
+    search_parser.add_argument(
+        "--until",
+        type=str,
+        help="结束时间 (YYYY-MM-DD)",
+    )
+    search_parser.add_argument(
+        "--all",
+        action="store_true",
+        help="列出所有会话 (等同于设置很大的 limit)",
     )
     search_parser.set_defaults(func=cmd_search)
 

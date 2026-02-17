@@ -1,0 +1,19 @@
+{
+  "name": "session-search",
+  "version": "1.1.0",
+  "description": "Search Claude Code conversation history and resume past sessions. Supports keyword search and time filtering.",
+  "author": {
+    "name": "OWENLEEzy",
+    "url": "https://github.com/OWENLEEzy"
+  },
+  "homepage": "https://github.com/OWENLEEzy/claude-session-analyzer",
+  "repository": "https://github.com/OWENLEEzy/claude-session-analyzer",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "session",
+    "search",
+    "history",
+    "resume"
+  ]
+}

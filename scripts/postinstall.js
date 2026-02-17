@@ -34,7 +34,7 @@ const pyprojectPath = path.join(projectRoot, 'pyproject.toml');
 if (fs.existsSync(pyprojectPath)) {
   console.log('\n📦 Installing Python dependencies...\n');
   try {
-    execSync(`pip3 install -e "${projectRoot}"`, { stdio: 'inherit' });
+    execSync(`pip3 install "${projectRoot}"`, { stdio: 'inherit' });
     console.log('\n✓ Dependencies installed');
   } catch (e) {
     console.error('✗ Failed to install Python dependencies');

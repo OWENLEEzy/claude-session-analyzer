@@ -58,20 +58,15 @@ coverage:
 mutate *ARGS:
     uv run mutmut run analyzer/ {{ARGS}}
 
-# API 属性测试 (需要 HTTP API)
-api schema_url:
-    @echo "🌐 Schemathesis API 测试"
-    uv run schemathesis run {{schema_url}} --base-url http://localhost:8000
-
 # ========== 完整工作流 ==========
 
 # 快速检查 (日常开发)
-quick:
-    @./scripts/quality-check.sh quick
+quick: fmt check
+    @echo "✅ Quick check passed"
 
 # 完整检查 (提交前)
-full:
-    @./scripts/quality-check.sh full
+full: check security test
+    @echo "✅ Full check passed"
 
 # CI/CD 流水线
 ci: fmt check security test
@@ -83,23 +78,10 @@ ci: fmt check security test
 run *ARGS:
     uv run csa {{ARGS}}
 
-# 运行 MCP Server
-mcp:
-    uv run csa-mcp
+# 搜索会话
+search query:
+    uv run csa search "{{query}}"
 
-# 演示智能搜索
-demo:
-    @uv run python3 -c "\
-from analyzer import SmartSearch, MockMCPClient, SearchResult; \
-s = object.__new__(SmartSearch); \
-s.use_mock = True; \
-s.intent_analyzer = None; \
-s.mcp_client = MockMCPClient([\
-    SearchResult('s1', '/p/auth', '用户认证', similarity=0.9),\
-    SearchResult('s2', '/p/api', 'JWT处理', similarity=0.8),\
-]); \
-s.reranker = __import__('analyzer.reranker', fromlist=['ResultReranker']).ResultReranker(); \
-r = s.search('继续做认证功能'); \
-print(f'查询: {r.query}'); \
-print(f'概念: {r.intent.concepts}'); \
-print('✅ 搜索正常');"
+# 分析会话文件
+analyze file:
+    uv run csa analyze {{file}}

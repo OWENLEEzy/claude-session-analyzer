@@ -1,0 +1,14 @@
+{
+  "name": "owenlee-dev",
+  "owner": {
+    "name": "OWENLEEzy"
+  },
+  "plugins": [
+    {
+      "name": "session-search",
+      "source": "./",
+      "version": "1.1.0",
+      "description": "Search Claude Code conversation history and resume past sessions"
+    }
+  ]
+}

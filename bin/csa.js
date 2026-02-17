@@ -3,15 +3,13 @@
 const { spawn } = require('child_process');
 const path = require('path');
 
-// Path to Python CLI
-const cliPath = path.join(__dirname, '..', 'analyzer', 'cli.py');
+// Run as a module to support relative imports
+const args = ['-m', 'analyzer.cli', ...process.argv.slice(2)];
 
-// Forward all arguments to Python CLI
-const args = [cliPath, ...process.argv.slice(2)];
-
-// Run Python
+// Run Python with the package directory in PYTHONPATH
 const python = spawn('python3', args, {
   stdio: 'inherit',
+  cwd: path.join(__dirname, '..'),
   env: { ...process.env, PYTHONPATH: path.join(__dirname, '..') }
 });
 

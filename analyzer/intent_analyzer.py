@@ -130,7 +130,7 @@ class IntentAnalyzer:
 
         # Detect time hint
         time_hint = "all_time"
-        recent_keywords = ["最近", "上次", "刚才", "刚才", "recent", "last", "yesterday"]
+        recent_keywords = ["最近", "上次", "刚才", "recent", "last", "yesterday"]
         if any(kw in query for kw in recent_keywords):
             time_hint = "recent"
 
