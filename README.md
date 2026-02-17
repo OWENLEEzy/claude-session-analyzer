@@ -36,16 +36,7 @@ npm install -g claude-session-analyzer
 
 This automatically installs the `/session-search` skill.
 
-### Option 3: PyPI
-
-```bash
-pip install claude-session-analyzer
-
-# Or with uv
-uv pip install claude-session-analyzer
-```
-
-### Option 4: from source
+### Option 3: from source
 
 ```bash
 git clone https://github.com/OWENLEEzy/claude-session-analyzer.git
